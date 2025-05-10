@@ -1,0 +1,49 @@
+services:
+  frontend:
+    build:
+      context: ./front
+      dockerfile: Dockerfile
+    container_name: db-front
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./front:/app:Z
+
+  backend:
+    build:
+      context: ./back
+      dockerfile: Dockerfile
+    container_name: db-back
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgres://postgres:admin123@db:5432/db
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=admin123
+      - POSTGRES_DB=db
+      - PORT=8080
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:latest
+    container_name: db-db
+    restart: always
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_DB=db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=admin123
+    volumes:
+      - ./db/ddl.sql:/docker-entrypoint-initdb.d/10-ddl.sql:Z
+      - ./db/data.sql:/docker-entrypoint-initdb.d/20-data.sql:Z
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
