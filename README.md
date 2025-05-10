@@ -4,6 +4,8 @@ This project was made as part of a Relational Databases University course, it's 
 calculated in real-time. This means, all of the information processing, grouping, filtering, etc. is done by dynamically building queries sent to a PostgreSQL database.
 We were also tasked with building a frontend, allowing the user of the application to see the reports, visualize via graphs, export to PDF & CSV.
 
+Note: Some of the handlers in the backend support multi-valued filters, for example Shift_type, but these are not supported in the front-end due to time constraints.
+
 ## Running this Project
 
 ### Dependencies
