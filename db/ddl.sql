@@ -155,4 +155,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-
+CREATE TRIGGER validate_on_call_assignment
+BEFORE INSERT OR UPDATE ON shift_assignments
+FOR EACH ROW EXECUTE FUNCTION validate_on_call_assignment();

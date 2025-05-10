@@ -8,14 +8,14 @@ We were also tasked with building a frontend, allowing the user of the applicati
 
 ### Dependencies
 
-Running via Docker:
-
-Running Locally:
+Docker & Docker Compose
 
 ### How to Run
 
-Running via Docker:
+Run the following command in the root of the directory:
 
 ```
 docker compose up --build
 ```
+
+Note: The front-end repository is running in the development version, however, this should not affect anything

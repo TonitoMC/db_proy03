@@ -598,14 +598,13 @@ INSERT INTO leave_requests (staff_id, start_date, end_date, status) VALUES
 (99, '2025-05-01', NULL, 'pending'),         -- Nurse with pending indefinite leave
 (120, '2025-04-20', NULL, 'approved');       -- Resident on extended medical leave
 
--- shift_assignments.sql - Fixed version
--- This script generates shift assignments for all staff members 
--- for the 30-day period ending on May 7, 2025
-
--- First, clear any existing shift assignments to avoid conflicts
 TRUNCATE TABLE shift_assignments CASCADE;
 
--- Create a temporary function to generate shift assignments more efficiently
+-- Necesitaba generar mas de 2000 registros, intente con todos los modelos de IA
+-- pero ninguno me pudo dar una respuesta suficientemente larga. Claude ofrecio hacerme
+-- un script para auto-generar registros aleatoriasmente y aqui quedo, este no
+-- lo hice yo pero si le indique la logica detras, por ejemplo, seguir patrones donde
+-- ciertos roles trabajan mas que otros
 CREATE OR REPLACE FUNCTION generate_shift_assignments()
 RETURNS void AS $$
 DECLARE
