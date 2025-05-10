@@ -49,6 +49,7 @@ func GetStaffWorkloadAnalysisHandler(w http.ResponseWriter, r *http.Request) {
             shifts sh ON sa.shift_id = sh.id
   			WHERE
   					sh.date BETWEEN $1 AND $2
+  					AND r.name = 'Doctor'
     `
 
 	// Collect the filters from the URL query parameters
@@ -88,7 +89,7 @@ func GetStaffWorkloadAnalysisHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Department Filter (Handling multiple departments)
-	departments := queryParams["department"] // Get all values for 'department'
+	departments := queryParams["department"]
 	if len(departments) > 0 {
 		placeholders := make([]string, len(departments))
 		for i := range departments {
@@ -159,7 +160,6 @@ func GetStaffWorkloadAnalysisHandler(w http.ResponseWriter, r *http.Request) {
 		argCount++
 	}
 
-	// Filter for staff with at least one assignment within the date range (optional)
 	hasAssignments := queryParams.Get("has_assignments")
 	if strings.ToLower(hasAssignments) == "true" {
 		havingConditions = append(havingConditions, "COUNT(sa.id) > 0")
@@ -184,7 +184,7 @@ func GetStaffWorkloadAnalysisHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("With values:", values)
 
 	// Execute the query
-	rows, err := db.Query(query, values...) // Assuming 'db' is globally accessible in main package
+	rows, err := db.Query(query, values...)
 	if err != nil {
 		log.Printf("Error querying staff workload analysis report: %v", err)
 		http.Error(w, "Failed to fetch staff workload analysis report", http.StatusInternalServerError)
@@ -196,13 +196,13 @@ func GetStaffWorkloadAnalysisHandler(w http.ResponseWriter, r *http.Request) {
 	var reports []StaffWorkloadReportItem
 	for rows.Next() {
 		var report StaffWorkloadReportItem
-		var departments sql.NullString // Use sql.NullString for potentially null STRING_AGG
+		var departments sql.NullString
 
 		err := rows.Scan(
 			&report.StaffID,
 			&report.StaffName,
 			&report.RoleName,
-			&departments, // Scan into sql.NullString
+			&departments,
 			&report.TotalShiftsAssigned,
 			&report.OnCallShiftsAssigned,
 			&report.OnCallPercentage,
@@ -213,7 +213,6 @@ func GetStaffWorkloadAnalysisHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Assign from sql.NullString to the struct field (pointer)
 		if departments.Valid {
 			report.Departments = &departments.String
 		} else {

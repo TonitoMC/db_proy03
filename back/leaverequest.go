@@ -259,7 +259,6 @@ func GetLeaveAnalysisReportHandler(w http.ResponseWriter, r *http.Request) {
 	// Set Content-Type header and encode as JSON
 	w.Header().Set("Content-Type", "application/json")
 
-	// Use json.Marshal to inspect the actual response before sending
 	jsonBytes, err := json.MarshalIndent(reports, "", "  ")
 	if err != nil {
 		log.Printf("Error marshaling JSON: %v", err)
