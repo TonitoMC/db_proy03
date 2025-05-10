@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	_ "github.com/lib/pq" // Import the PostgreSQL driver
+	_ "github.com/lib/pq"
 )
 
 // Struct to hold Staff Workload Report data
@@ -17,7 +17,7 @@ type StaffWorkloadReportItem struct {
 	StaffID              int     `json:"staff_id"`
 	StaffName            string  `json:"staff_name"`
 	RoleName             string  `json:"role_name"`
-	Departments          *string `json:"departments"` // Use pointer for nullable STRING_AGG
+	Departments          *string `json:"departments"`
 	TotalShiftsAssigned  int     `json:"total_shifts_assigned"`
 	OnCallShiftsAssigned int     `json:"on_call_shifts_assigned"`
 	OnCallPercentage     float64 `json:"on_call_percentage"`
@@ -47,6 +47,8 @@ func GetStaffWorkloadAnalysisHandler(w http.ResponseWriter, r *http.Request) {
             departments d ON sa.department_id = d.id
         LEFT JOIN
             shifts sh ON sa.shift_id = sh.id
+  			WHERE
+  					sh.date BETWEEN $1 AND $2
     `
 
 	// Collect the filters from the URL query parameters
@@ -58,7 +60,7 @@ func GetStaffWorkloadAnalysisHandler(w http.ResponseWriter, r *http.Request) {
 	var values []interface{}
 	argCount := 1 // Parameter counter for parameterized queries
 
-	// Date Range Filter (REQUIRED)
+	// Required date range filter
 	startDate := queryParams.Get("start_date")
 	endDate := queryParams.Get("end_date")
 
@@ -72,29 +74,7 @@ func GetStaffWorkloadAnalysisHandler(w http.ResponseWriter, r *http.Request) {
 	values = append(values, startDate, endDate)
 	argCount += 2
 
-	// Optional Filters for WHERE clause
-	// Staff Member Filter (Handling multiple staff members)
-	staffIDs := queryParams["staff_id"] // Get all values for 'staff_id'
-	if len(staffIDs) > 0 {
-		idPlaceholders := make([]string, len(staffIDs))
-		for i := range staffIDs {
-			idPlaceholders[i] = fmt.Sprintf("$%d", argCount+i)
-		}
-		conditions = append(conditions, fmt.Sprintf("s.id IN (%s)", strings.Join(idPlaceholders, ", ")))
-		for _, idStr := range staffIDs {
-			id, err := strconv.Atoi(idStr)
-			if err != nil {
-				http.Error(w, fmt.Sprintf("Invalid staff_id: %s", idStr), http.StatusBadRequest)
-				return
-			}
-			values = append(values, id)
-		}
-		argCount += len(staffIDs)
-	}
-
-	// Role Filter (Handling multiple roles)
-	// This filter is important for distinguishing doctors
-	roles := queryParams["role"] // Get all values for 'role'
+	roles := queryParams["role"]
 	if len(roles) > 0 {
 		placeholders := make([]string, len(roles))
 		for i := range roles {
@@ -123,7 +103,7 @@ func GetStaffWorkloadAnalysisHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Combine the WHERE clause conditions correctly
 	if len(conditions) > 0 {
-		query += " WHERE " + strings.Join(conditions, " AND ")
+		query += " AND " + strings.Join(conditions, " AND ")
 	}
 
 	// Optional Filters for HAVING clause (based on aggregated counts)
@@ -180,7 +160,7 @@ func GetStaffWorkloadAnalysisHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Filter for staff with at least one assignment within the date range (optional)
-	hasAssignments := queryParams.Get("has_assignments") // e.g., ?has_assignments=true
+	hasAssignments := queryParams.Get("has_assignments")
 	if strings.ToLower(hasAssignments) == "true" {
 		havingConditions = append(havingConditions, "COUNT(sa.id) > 0")
 	}
@@ -197,7 +177,7 @@ func GetStaffWorkloadAnalysisHandler(w http.ResponseWriter, r *http.Request) {
     `
 
 	// Add ORDER BY
-	query += " ORDER BY s.name"
+	query += " ORDER BY on_call_percentage DESC"
 
 	// Log the final query (for debugging)
 	log.Println("Executing query:", query)

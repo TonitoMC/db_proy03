@@ -7,8 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	// Import time for date formatting
-	_ "github.com/lib/pq" // Import the PostgreSQL driver
+	_ "github.com/lib/pq"
 )
 
 // Struct for Monthly Shift Assignments Report Data
@@ -40,6 +39,8 @@ func GetMonthlyShiftsHandler(w http.ResponseWriter, r *http.Request) {
             departments d ON sa.department_id = d.id
         LEFT JOIN
             shift_times st ON sh.shift_time_id = st.id
+        WHERE
+            sh.date BETWEEN $1 AND $2
     `
 
 	// Collect the filters from URL
@@ -48,9 +49,9 @@ func GetMonthlyShiftsHandler(w http.ResponseWriter, r *http.Request) {
 	// Build the WHERE clause dynamically
 	var conditions []string
 	var values []interface{}
-	argCount := 1 // Used to dynamically build queries
+	argCount := 3 // Used to dynamically build queries
 
-	// Date Range Filter (REQUIRED)
+	// Required date filter
 	startDate := queryParams.Get("start_date")
 	endDate := queryParams.Get("end_date")
 
@@ -60,40 +61,25 @@ func GetMonthlyShiftsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Add the mandatory date range condition
-	conditions = append(conditions, fmt.Sprintf("sh.date BETWEEN $%d AND $%d", argCount, argCount+1))
 	values = append(values, startDate, endDate)
-	argCount += 2
-
-	// Optional Role Filter (Multi-select)
-	roles := queryParams["role"]
-	if len(roles) > 0 {
-		placeholders := make([]string, len(roles))
-		for i := range roles {
-			placeholders[i] = fmt.Sprintf("$%d", argCount+i)
-		}
-		conditions = append(conditions, fmt.Sprintf("r.name IN (%s)", strings.Join(placeholders, ", ")))
-		for _, role := range roles {
-			values = append(values, role)
-		}
-		argCount += len(roles)
+	// Role filter, builds query & increments argCount
+	role := queryParams.Get("role")
+	if role != "" {
+		conditions = append(conditions, fmt.Sprintf("r.name = $%d", argCount))
+		values = append(values, role)
+		argCount++
 	}
 
-	// Optional Department Filter (Multi-select)
-	departments := queryParams["department"]
-	if len(departments) > 0 {
-		placeholders := make([]string, len(departments))
-		for i := range departments {
-			placeholders[i] = fmt.Sprintf("$%d", argCount+i)
-		}
-		conditions = append(conditions, fmt.Sprintf("d.name IN (%s)", strings.Join(placeholders, ", ")))
-		for _, dept := range departments {
-			values = append(values, dept)
-		}
-		argCount += len(departments)
+	// Department filter, builds query & increments argCount
+	department := queryParams.Get("department")
+	if department != "" {
+		conditions = append(conditions, fmt.Sprintf("d.name = $%d", argCount))
+		values = append(values, department)
+		argCount++
 	}
 
-	// Optional Shift Type Filter (Dropdown)
-	shiftTypes := queryParams["shift_type"] // Assuming this is the param name
+	// Optional Shift Type Filter (Planned to be multi-select but dropped)
+	shiftTypes := queryParams["shift_type"]
 	if len(shiftTypes) > 0 {
 		placeholders := make([]string, len(shiftTypes))
 		for i := range shiftTypes {
@@ -106,8 +92,8 @@ func GetMonthlyShiftsHandler(w http.ResponseWriter, r *http.Request) {
 		argCount += len(shiftTypes)
 	}
 
-	// Optional Shift Time Filter (Multi-select)
-	shiftTimes := queryParams["shift_time"] // Assuming this is the param name
+	// Optional Shift Time Filter (Planned to be multi-select but dropped)
+	shiftTimes := queryParams["shift_time"]
 	if len(shiftTimes) > 0 {
 		placeholders := make([]string, len(shiftTimes))
 		for i := range shiftTimes {
@@ -122,10 +108,9 @@ func GetMonthlyShiftsHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Combine the WHERE clause conditions
 	if len(conditions) > 0 {
-		query += " WHERE " + strings.Join(conditions, " AND ")
+		query += " AND " + strings.Join(conditions, " AND ")
 	}
 
-	// **Group by year and month**
 	query += `
         GROUP BY
             EXTRACT(YEAR FROM sh.date),
@@ -133,17 +118,11 @@ func GetMonthlyShiftsHandler(w http.ResponseWriter, r *http.Request) {
             TO_CHAR(sh.date, 'YYYY-MM')
     `
 
-	// No HAVING clause needed for this simple count per month
-
-	// **Order chronologically by year and month**
 	query += " ORDER BY assignment_year, assignment_month"
 
-	// Log the final query (for debugging)
 	log.Println("Executing query:", query)
 	log.Println("With values:", values)
 
-	// Execute the query
-	// Assuming 'db' is a globally accessible and initialized *sql.DB variable.
 	rows, err := db.Query(query, values...)
 	if err != nil {
 		log.Printf("Error querying monthly shift assignments report: %v", err)
@@ -152,11 +131,9 @@ func GetMonthlyShiftsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	// Process the results
-	var reports []MonthlyShiftAssignmentItem // Use the new struct
+	var reports []MonthlyShiftAssignmentItem
 	for rows.Next() {
 		var report MonthlyShiftAssignmentItem
-		// Scan into the new struct
 		err := rows.Scan(
 			&report.AssignmentYear,
 			&report.AssignmentMonth,
@@ -177,7 +154,6 @@ func GetMonthlyShiftsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Set Content-Type header and encode as JSON
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(reports) // Encode the slice
+	json.NewEncoder(w).Encode(reports)
 }
