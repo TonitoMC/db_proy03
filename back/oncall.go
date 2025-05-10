@@ -164,17 +164,15 @@ func GetStaffWorkloadAnalysisHandler(w http.ResponseWriter, r *http.Request) {
 	if strings.ToLower(hasAssignments) == "true" {
 		havingConditions = append(havingConditions, "COUNT(sa.id) > 0")
 	}
-
-	// Combine the HAVING clause conditions
-	if len(havingConditions) > 0 {
-		query += " HAVING " + strings.Join(havingConditions, " AND ")
-	}
-
 	// Add GROUP BY
 	query += `
     GROUP BY
         s.id, s.name, r.name
     `
+	// Combine the HAVING clause conditions
+	if len(havingConditions) > 0 {
+		query += " HAVING " + strings.Join(havingConditions, " AND ")
+	}
 
 	// Add ORDER BY
 	query += " ORDER BY on_call_percentage DESC"
